@@ -1,4 +1,4 @@
 # supervisor
 Front for my supervisor
 
-[login](/auth/github)
+[login](https://supervisor.oct.ovh/auth/github)
