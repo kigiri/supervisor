@@ -27,7 +27,7 @@ export default store => {
   const authenticated = store.user.loadStatus === 'success'
   return (<Container
     style={{ marginTop: '3em' }}
-    textAlign={authenticated ? 'left' : 'centred'}>
+    textAlign={authenticated ? 'left' : 'center'}>
     <Header as='h2' icon={!authenticated}>
       <Icon name='settings' />
       <Header.Content>

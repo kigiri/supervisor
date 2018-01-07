@@ -26,7 +26,7 @@ reducers.INPUT_CHANGE = (state, { data: { inputName, value } }) => ({
 
 const updateService = (state, serviceName, action, ...args) => ({
   ...state.services,
-  [serviceName]: action(service, ...[ ...args, state ]),
+  [serviceName]: action(state.services[serviceName], ...[ ...args, state ]),
 })
 
 const envChange = (service, key, value) =>
@@ -64,6 +64,6 @@ export default initStore({
   reducers,
   initialState: {
     user: { loadStatus: 'loading' },
-    services: {}},
+    services: {},
   }
 })

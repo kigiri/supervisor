@@ -22,9 +22,11 @@ api('services')
   })
   .then(store.dispatch.SET_USER_DATA, store.dispatch.UNEXPECTED_ERROR)
   .then(() => console.log('fetching ended'))
+
+/**/
 /*
-const services = [
-  {
+const services = {
+  supervisor: {
     name: 'supervisor',
     version: '1.0.0',
     description: 'supervise services',
@@ -37,13 +39,10 @@ const services = [
     },
     // update, restart, config
   },
-]
+}
 
 setTimeout(() => store.dispatch.LOAD_SERVICES(services), 600)
 setTimeout(() => store.dispatch.SET_USER_DATA({
-  login: 'kigiri',
-  fullname: 'Clément Denis',
-  avatar: 'https://avatars1.githubusercontent.com/u/231748',
   loadStatus: 'success',
 }), 500)
 /**/
