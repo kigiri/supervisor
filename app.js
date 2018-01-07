@@ -14,9 +14,21 @@ const signIn = (<div>
   </a>
 </div>)
 
-export default store => (
-  <Container style={{ marginTop: '3em' }}>
-    <Header as='h2' icon={store.user.loadStatus !== 'success'}>
+const servicesList = store => (<div>
+  <Divider horizontal>Add New Services</Divider>
+  {AddService(store)}
+  <Divider horizontal>Service List</Divider>
+  {Object.keys(store.services)
+    .map(serviceName => Service(store.services[serviceName], store))}
+</div>)
+
+export default store => {
+  const loading = store.user.loadStatus === 'loading'
+  const authenticated = store.user.loadStatus === 'success'
+  return (<Container
+    style={{ marginTop: '3em' }}
+    textAlign={authenticated ? 'left' : 'centred'}>
+    <Header as='h2' icon={!authenticated}>
       <Icon name='settings' />
       <Header.Content>
         Supervisor
@@ -25,16 +37,10 @@ export default store => (
         </Header.Subheader>
       </Header.Content>
     </Header>
-    <Divider horizontal>Add New Services</Divider>
-    {AddService(store)}
-    <Divider horizontal>Service List</Divider>
-    {store.services.map(Service)}
-    <Dimmer active={store.user.loadStatus === 'loading'}>
+    <Dimmer active={loading || store.error}>
+      {String(store.error || '')}
       <Loader content='Loading' />
     </Dimmer>
-    <Dimmer active={store.error}>
-     {String(store.error)}
-    </Dimmer>
-    { store.user.loadStatus === 'unauthorized' ? signIn : undefined }
-  </Container>
-)
+    { store.user.loadStatus === 'unauthorized' ? signIn : servicesList(store) }
+  </Container>)
+}
