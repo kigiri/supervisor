@@ -8,12 +8,15 @@ const toJSON = r => {
   error.response = r
   throw error
 }
-const api = (path, params) => fetch(`${apiBaseUrl}${path}`)
+const apiOpts = { credentials: 'include' }
+const api = (path, params) => fetch(`${apiBaseUrl}${path}`, apiOpts)
   .then(toJSON)
 
-console.log('fetching session')
-api('session')
-  .then(user => (user.loadStatus = 'success', user), err => {
+api('services')
+  .then(services => {
+    store.dispatch.LOAD_SERVICES(services)
+    return { loadStatus: 'success' }
+  }, err => {
     if (err.status === 401) return { loadStatus: 'unauthorized' }
     throw err
   })
