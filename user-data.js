@@ -11,15 +11,13 @@ const toJSON = r => {
 const api = (path, params) => fetch(`${apiBaseUrl}${path}`)
   .then(toJSON)
 
-/*
 api('session')
   .then(user => (user.loadStatus = 'success', user), err => {
     if (err.status === 401) return { loadStatus: 'unauthorized' }
     throw err
   })
   .then(store.dispatch.SET_USER_DATA, store.dispatch.UNEXPECTED_ERROR)
-*/
-
+/*
 const services = [
   {
     name: 'supervisor',
@@ -43,3 +41,4 @@ setTimeout(() => store.dispatch.SET_USER_DATA({
   avatar: 'https://avatars1.githubusercontent.com/u/231748',
   loadStatus: 'success',
 }), 500)
+/**/
