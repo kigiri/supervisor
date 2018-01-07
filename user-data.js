@@ -1,16 +1,5 @@
 import store from './store'
 
-const apiBaseUrl = 'https://supervisor.oct.ovh/'
-const toJSON = r => {
-  if (r.ok) return r.json()
-  const error = Error(r.status)
-  error.status = r.status
-  error.response = r
-  throw error
-}
-const apiOpts = { credentials: 'include' }
-const api = (path, params) => fetch(`${apiBaseUrl}${path}`, apiOpts)
-  .then(toJSON)
 
 api('services')
   .then(services => {

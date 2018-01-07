@@ -1,4 +1,5 @@
 import initStore from './init-store'
+import api from './api'
 
 const del = (key, obj) => {
   const r = { ...obj }
@@ -58,6 +59,19 @@ reducers.SERVICE_SELECT = (state, { data: { serviceName, selected } }) => ({
   services: updateService(state, serviceName, serviceSelect, selected),
 })
 
+const envUpdates = new Set(['ENV_CHANGE', 'ADD_ENV', 'DEL_ENV'])
+
+const syncApi = store => next => async action => {
+  const result = next(action)
+  if (envUpdates.has(action.type)) {
+    const name = action.data.serviceName || action.data
+    await api.post('env', {
+      name,
+      env: JSON.stringify(store.getState().services[name].env),
+    })
+  }
+  return result
+}
 
 export default initStore({
   controlled: [ 'serviceName', 'serviceRepo', 'addEnv' ],
@@ -65,5 +79,6 @@ export default initStore({
   initialState: {
     user: { loadStatus: 'loading' },
     services: {},
-  }
+  },
+  middlewares: [ syncApi ],
 })

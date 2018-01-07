@@ -1,6 +1,6 @@
-import { createStore } from 'redux'
+import { createStore, applyMiddleware } from 'redux'
 
-export default ({ initialState = {}, reducers, controlled = [] }) => {
+export default ({ initialState={}, reducers, controlled=[], middlewares=[] }) => {
   const values = initialState.inputsValues || (initialState.inputsValues = {})
   controlled.reduce((acc, key) => (values[key] || (values[key] = ''), acc), {})
 
@@ -9,7 +9,8 @@ export default ({ initialState = {}, reducers, controlled = [] }) => {
 
   const id = _ => _
   const store = createStore((state, action) =>
-    (reducers[action.type] || id)(state, action), initialState)
+    (reducers[action.type] || id)(state, action), initialState,
+    applyMiddleware(...middlewares))
 
   Object.keys(actions).reduce((src, type) => {
     src[type] = data => store.dispatch({ type, data })
