@@ -11,12 +11,14 @@ const toJSON = r => {
 const api = (path, params) => fetch(`${apiBaseUrl}${path}`)
   .then(toJSON)
 
+console.log('fetching session')
 api('session')
   .then(user => (user.loadStatus = 'success', user), err => {
     if (err.status === 401) return { loadStatus: 'unauthorized' }
     throw err
   })
   .then(store.dispatch.SET_USER_DATA, store.dispatch.UNEXPECTED_ERROR)
+  .then(() => console.log('fetching ended'))
 /*
 const services = [
   {
