@@ -2,16 +2,17 @@
   "private": true,
   "scripts": {
     "start": "cross-env NODE_ENV=development parcel index.html ",
-    "build": "cross-env NODE_ENV=production parcel build index.html --public-url /",
+    "build": "cross-env NODE_ENV=production parcel build index.html --public-url /supervisor/",
+    "deploy": "npm run build && gh-pages -d dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nan-ci/user.git"
+    "url": "git+https://github.com/kigiri.supervisor.git"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/nan-ci/user/issues"
+    "url": "https://github.com/kigiri.supervisor/issues"
   },
   "postcss": {
     "modules": false,
