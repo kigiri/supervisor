@@ -1,4 +1,4 @@
-import initStore from './init-store'
+import { handleAsync, initStore } from './init-store'
 import api from './api'
 
 const del = (key, obj) => {
@@ -25,6 +25,17 @@ reducers.INPUT_CHANGE = (state, { data: { inputName, value } }) => ({
   }
 })
 
+/////////////////////////////////////// API
+'add.update.restart.start.stop'.split('.').forEach(key =>
+  reducers[`${key.toUpperCase()}_SERVICE`] = (state, { data }) =>
+    data.name === 'supervisor'
+      ? api.post(key, data).catch(err => {
+        console.log(err.status)
+        if (err.status === 502) return 'OK'
+        throw error
+      })
+      : api.post(key, data))
+
 const updateService = (state, serviceName, action, ...args) => ({
   ...state.services,
   [serviceName]: action(state.services[serviceName], ...[ ...args, state ]),
@@ -37,8 +48,10 @@ reducers.ENV_CHANGE = (state, { data: { serviceName, value, key } }) => ({
   services: updateService(state, serviceName, envChange, key, value),
 })
 
-const addEnv = (service, state) =>
-  ({ ...service, env: { ...service.env, [state.inputsValues.addEnv]: '' } })
+const addEnv = (service, state) => ({
+  ...service,
+  env: { ...service.env, [state.inputsValues.addEnv.toUpperCase()]: '' },
+})
 reducers.ADD_ENV = (state, { data: serviceName }) => ({
   ...state,
   inputsValues: { ...state.inputsValues, addEnv: '' },
@@ -53,30 +66,150 @@ reducers.DEL_ENV = (state, { data: { serviceName, key } }) => ({
   services: updateService(state, serviceName, delEnv, key),
 })
 
-const serviceSelect = (service, selected) => ({ ...service, selected })
-reducers.SERVICE_SELECT = (state, { data: { serviceName, selected } }) => ({
+reducers.HIDE_ENV = state => ({
   ...state,
-  services: updateService(state, serviceName, serviceSelect, selected),
+  hideEnv: !state.hideEnv,
 })
 
-const envUpdates = new Set(['ENV_CHANGE', 'ADD_ENV', 'DEL_ENV'])
+reducers.SERVICE_SELECT = (state, { data: { serviceName, selected } }) => {
+  const prev = state.selectedService !== serviceName
+    && state.services[state.selectedService]
 
-const syncApi = store => next => async action => {
-  const result = next(action)
-  if (envUpdates.has(action.type)) {
+  state.ws.send && state.ws.send(`${selected === 'log'
+    ? 'sub'
+    : 'unsub'}:${serviceName}`)
+  const newState = {
+    ...state,
+    selectedService: serviceName,
+    services: {
+      ...state.services,
+      [serviceName]: { ...state.services[serviceName], selected },
+    },
+  }
+  if (prev) {
+    const newPrev = newState.services[prev.name]
+    newPrev.selected = undefined
+    newPrev.logs = []
+  }
+  if (selected === 'log') {
+    setTimeout(autoScroll, 100)
+  }
+  return newState
+}
+
+const debounce = (fn, time = 100, clear = {}) => (...args) => {
+  clearTimeout(clear.timeout)
+  clear.timeout = setTimeout(() => fn(...args)
+    .then(clear.s, clear.f)
+    .then(clear.clear || (clear.clear = () => clear.q = undefined)), time)
+  return clear.q || (clear.q = new Promise((s,f) => (clear.s = s, clear.f = f)))
+}
+const debouncedPost = debounce(api.post, 500)
+const syncApi = subStore => next => async action => {
+  const nextAction = next(action)
+  switch (action.type) {
+  case 'DEL_ENV':
+  case 'ADD_ENV': {
     const name = action.data.serviceName || action.data
     await api.post('env', {
       name,
-      env: JSON.stringify(store.getState().services[name].env),
+      env: btoa(JSON.stringify(subStore.getState().services[name].env)),
     })
+    return nextAction
   }
-  return result
+  case 'ENV_CHANGE': {
+    const name = action.data.serviceName || action.data
+    await debouncedPost('env', {
+      name,
+      env: btoa(JSON.stringify(subStore.getState().services[name].env)),
+    })
+    return nextAction
+  }
+  default: return nextAction
+  }
 }
+//////////////////////////////////// WEBSOCKET
+
+reducers.WS = (state, { data: ws }) => ({ ...state, ws })
+
+const comp = (a, b) => a === b ? 0 : (a > b ? 1 : -1)
+const byId = (a, b) => comp(a.id, b.id) || a.index - b.index
+const isNotNotif = n => !n.isNotif
+const aggregateSame = (total, curr, i) => {
+  const prev = total[total.length - 1]
+  if (!prev) return [ curr ]
+  if (prev && prev.message === curr.message
+    && prev.boot === curr.boot
+    && prev.source === prev.source
+    && prev.isError === prev.isError) {
+    (prev.repeated || (prev.repeated = [])).push(curr.date)
+  } else {
+    total.push(curr)
+  }
+  return total
+}
+const autoScroll = () => {
+  const tr = document.querySelector('#service-log tr')
+  if (!tr) return setTimeout(autoScroll, 20)
+
+  const logger = document.getElementById('service-log')
+  logger.scrollTop = logger.scrollHeight - logger.clientHeight
+}
+const addLogs = (logs, state) => {
+  const service = state.services[state.selectedService]
+  const el = document.getElementById('service-log')
+  if (el) {
+    const safe = el
+      && (el.scrollHeight - (el.clientHeight + el.scrollTop)) < 20
+      && setTimeout(autoScroll, 20)
+  } else {
+    setTimeout(autoScroll, 30)
+  }
+  return {
+    ...state,
+    services: {
+      ...state.services,
+      [service.name]: {
+        ...service,
+        sub: true,
+        logs: (service.logs || [])
+          .slice(-300)
+          .filter(isNotNotif)
+          .concat(logs)
+          .sort(byId)
+          .reduce(aggregateSame, []),
+      }
+    }
+  }
+}
+
+reducers.SUB = state => {
+  const date = new Date
+  const message = (state.ws && state.ws.readyState === 1)
+    ? `connecting to journalctl...`
+    : `waiting for websocket to be connected, currently ${state.ws.readyState}`
+  return addLogs([{
+    date,
+    message,
+    index: -1,
+    id: `${date.getTime()}${String(performance.now()).slice(0, 3)}`,
+    isNotif: true,
+    source: 'store.js',
+  }], state)
+}
+
+reducers.ADD_LOGS = (state, { data: logs }) => addLogs(logs, state)
+
+reducers.ERROR = (state, { data: error }) => ({ ...state, error })
+
+reducers.DISMISS_ERROR = state => ({ ...state, error: undefined })
 
 export default initStore({
   controlled: [ 'serviceName', 'serviceRepo', 'addEnv' ],
   reducers,
   initialState: {
+    ws: {},
+    hideEnv: true,
     user: { loadStatus: 'loading' },
     services: {},
   },

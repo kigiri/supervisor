@@ -1,16 +1,17 @@
 import store from './store'
-
+import api from './api'
+import connectWs from './ws'
 
 api('services')
   .then(services => {
     store.dispatch.LOAD_SERVICES(services)
+    connectWs()
     return { loadStatus: 'success' }
   }, err => {
     if (err.status === 401) return { loadStatus: 'unauthorized' }
     throw err
   })
   .then(store.dispatch.SET_USER_DATA, store.dispatch.UNEXPECTED_ERROR)
-  .then(() => console.log('fetching ended'))
 
 /**/
 /*

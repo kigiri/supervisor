@@ -8,9 +8,7 @@ import app from './app'
 import store from './store'
 
 const render = () =>
-console.log(store.getState()) ||
-  ReactDOM.render(app(store.getState()),
-  document.getElementById('app'))
+  ReactDOM.render(app(store.getState()), document.getElementById('app'))
 
 store.subscribe(render)
 

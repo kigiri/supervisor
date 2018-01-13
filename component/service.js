@@ -7,53 +7,115 @@ import {
   Segment,
   Form,
   Input,
+  Label,
 } from 'semantic-ui-react'
+
+const colors = {
+  bg: '#282a36',
+  fg: '#f8f8f2',
+  selected: '#44475a',
+  comment: '#6272a4',
+  cyan: '#8be9fd',
+  green: '#50fa7b',
+  orange: '#ffb86c',
+  pink: '#ff79c6',
+  purple: '#bd93f9',
+  red: '#ff5555',
+  yellow: '#f1fa8c',
+}
+
+const countStyle = {
+  // background: ,
+  color: colors.comment,
+  // borderRadius: 3,
+  // marginRight: 4,
+  // display: 'inline-block',
+}
+
+const inverted = {
+  background: colors.bg,
+  borderColor: 'black',
+  color: colors.fg,
+}
+
+const preStyle = {
+  ...inverted,
+  height: '22em',
+  overflowY: 'scroll',
+  overflowX: 'hidden',
+  fontFamily: 'monospace',
+}
 
 const select = (service, selected) => service.selected === selected
   ? undefined
   : () => store.dispatch.SERVICE_SELECT({ serviceName: service.name, selected })
 
-const preStyle = {
-  maxHeight: '20em',
-  overflowY: 'scroll',
-  overflowX: 'hidden',
-  color: '#767676',
+const isLoading = ({ start, end, data }, name, icon) => (data
+  && ((data.name || data) === name)
+  && start
+  && !end)
+const actionButton = (type, icon, service, state) => {
+  const loading = isLoading(state.async[type], service.name, icon)
+
+  return (<Menu.Item
+    style={{ color: '#CCC' }}
+    disabled={loading}
+    icon={loading ? 'wait' : icon}
+    onClick={() => {
+      store.dispatch[type]({ name: service.name })
+      if (service.selected !== 'log') {
+        store.dispatch.SERVICE_SELECT({
+          serviceName: service.name,
+          selected: 'log',
+        })
+      }
+    }}
+  />)
 }
 
+const addEnv = ev => {
+  ev.preventDefault()
+  if (!ev.target.value) return document.getElementById(`env-input-0`).select()
+  store.dispatch.ADD_ENV(ev.target.name)
+}
+const addEnvIfEnter = ev => ev.key === 'Enter' ? addEnv(ev) : undefined
+const selectInput = sign => ev => {
+  ev.preventDefault()
+  const el = document
+    .getElementById(`env-input-${Number(ev.target.id.slice(10)) + sign}`)
+    || document.querySelector('#logger .input input')
+  el.select()
+}
+const selectNext = selectInput(+1)
+const selectPrev = selectInput(-1)
+const selectEventKeys = [ 'Enter', 'ArrowUp', 'ArrowDown' ]
+const selectEventHandler = ev => selectEventKeys.includes(ev.key)
+  ? (((ev.key === 'Enter' && !ev.shiftKey) || ev.key === 'ArrowDown')
+    ? selectNext
+    : selectPrev)(ev)
+  : undefined
+
+const toggleHide = () => store.dispatch.HIDE_ENV()
 const contentSwitch = {
   undefined: service => service.description,
-  log: service => (<pre style={preStyle}>
-      {`root@head:/service/supervisor# ./start.sh
-server started: http://localhost:6789
-[Redis] connect
-[Redis] ready
-{ supervisor:
-   { name: 'supervisor',
-     version: '1.0.0',
-     description: 'supervise services',
-     main: 'index.js',
-     scripts: { test: 'echo "Error: no test specified" && exit 1' },
-     repository:
-      { type: 'git',
-        url: 'git+https://github.com/kigiri/service-supervisor.git' },
-     keywords: [],
-     author: '',
-     license: 'ISC',
-     bugs: { url: 'https://github.com/kigiri/service-supervisor/issues' },
-     homepage: 'https://github.com/kigiri/service-supervisor#readme',
-     dependencies: { '4k': '0.0.8', redis: '^2.8.0' },
-     env: {} } }
-TypeError: Cannot read property 'email' of null
-    at getUserInfo.then (/service/supervisor/github.js:46:18)
-    at <anonymous>
-        `}
-    </pre>),
-  env: service => (<Form>
-    {Object.keys(service.env).map(key => (<Form.Field key={key}>
+  log: (service, state) => {
+    service.sub || store.dispatch.SUB()
+    return (<table><tbody>{(service.logs || []).map(log => (
+      <tr key={log.index} style={{ color: log.boot === service.lastBoot ? '' : colors.purple }}>
+        <td style={countStyle}>{log.repeated ? log.repeated.length : ''}</td>
+        <td>{log.message}</td>
+      </tr>))}
+    </tbody></table>)
+  },
+  env: (service, state) => (<Form>
+    {Object.keys(service.env).sort().map((key, i) => (<Form.Field key={key}>
       <label>{key}</label>
       <Input
         value={service.env[key]}
         labelPosition='right'
+        onKeyDown={selectEventHandler}
+        id={`env-input-${i}`}
+        type={state.hideEnv ? 'password' : 'text'}
         onChange={e => store.dispatch.ENV_CHANGE({
           serviceName: service.name,
           value: e.target.value,
@@ -63,62 +125,58 @@ TypeError: Cannot read property 'email' of null
           .DEL_ENV({ serviceName: service.name, key }) } />
         }/>
     </Form.Field>))}
-    <Button type='submit'>Save</Button>
     <Input
-      labelPosition='right'
+      fluid
+      action
+      id={`env-input-${Object.keys(service.env).length}`}
+      name={service.name}
+      onKeyDown={addEnvIfEnter}
       onChange={store.controlled.addEnv}
-      value={store.getState().inputsValues.addEnv || ''}
-      label={
-        <Button icon='plus' onClick={() =>
-          store.dispatch.ADD_ENV(service.name)} />
-      }/>
+      value={(state.inputsValues.addEnv || '')} >
+        <Button
+          style={{ marginRight: 16 }}
+          icon={state.hideEnv ? 'unhide' : 'hide'}
+          onClick={toggleHide} />
+        <input />
+        <Button icon='plus' name={service.name} onClick={addEnv} />
+    </Input>
   </Form>),
 }
 
-module.exports = service => (<div key={service.name} style={{ paddingBottom: 20 }}>
+module.exports = (service, state) => (<div key={service.name} style={{ paddingBottom: 20 }}>
   <Menu tabular attached='top'>
     <Menu.Item
       header
       active={!service.selected}
       onClick={select(service, undefined)}>
       {service.name[0].toUpperCase()+service.name.slice(1)}
-      <span style={{ fontWeight: 'normal', color: '#767676', marginLeft: '0.5em'}} >
-       v{service.version}
-      </span>
+      <span style={{
+        fontWeight: 'normal',
+        color: '#767676',
+        marginLeft: '0.5em',
+      }} >v{service.version}</span>
     </Menu.Item>
+    <Menu.Item
+      icon='terminal'
+      style={service.selected === 'log' ? inverted : {}}
+      active={service.selected === 'log'}
+      onClick={select(service, 'log')} />
+    <Menu.Item
+      icon='setting'
+      active={service.selected === 'env'}
+      onClick={select(service, 'env')} />
     <Menu.Menu position='right'>
-      <Menu.Item
-        icon='download'
-        onClick={() => {
-          if (service.selected !== 'log') {
-            store.dispatch.SERVICE_SELECT({
-              serviceName: service.name,
-              selected: 'log',
-            })
-          }
-        }} />
-      <Menu.Item
-        icon='repeat'
-        onClick={() => {
-          if (service.selected !== 'log') {
-            store.dispatch.SERVICE_SELECT({
-              serviceName: service.name,
-              selected: 'log',
-            })
-          }
-        }} />
-      <Menu.Item
-        icon='terminal'
-        active={service.selected === 'log'}
-        onClick={select(service, 'log')} />
-      <Menu.Item
-        icon='setting'
-        active={service.selected === 'env'}
-        onClick={select(service, 'env')} />
+      {actionButton('RESTART_SERVICE', 'repeat', service, state)}
+      {actionButton('UPDATE_SERVICE', 'download', service, state)}
+      {actionButton('START_SERVICE', 'play', service, state)}
+      {actionButton('STOP_SERVICE', 'stop', service, state)}
     </Menu.Menu>
   </Menu>
-  <Segment attached='bottom'>
-    {contentSwitch[service.selected](service)}
+  <Segment
+    id={service.selected && `service-${service.selected}`}
+    attached='bottom'
+    style={service.selected === 'log' ? preStyle : {}}>
+    {contentSwitch[service.selected](service, state)}
   </Segment>
 </div>)
 

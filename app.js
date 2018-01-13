@@ -3,7 +3,8 @@ import Signup from './component/signup'
 import Account from './component/account'
 import Service from './component/service'
 import AddService from './component/add-service'
-import { Container, Dimmer, Divider, Loader, Button, Icon, Header, Menu } from 'semantic-ui-react'
+import store from './store'
+import { Container, Dimmer, Divider, Loader, Button, Icon, Header, Menu, Message } from 'semantic-ui-react'
 
 const signIn = (<div>
   <a href='https://supervisor.oct.ovh/auth/github'>
@@ -14,17 +15,17 @@ const signIn = (<div>
   </a>
 </div>)
 
-const servicesList = store => (<div>
+const servicesList = state => (<div>
   <Divider horizontal>Add New Services</Divider>
-  {AddService(store)}
+  {AddService(state)}
   <Divider horizontal>Service List</Divider>
-  {Object.keys(store.services)
-    .map(serviceName => Service(store.services[serviceName], store))}
+  {Object.keys(state.services)
+    .map(serviceName => Service(state.services[serviceName], state))}
 </div>)
 
-export default store => {
-  const loading = store.user.loadStatus === 'loading'
-  const authenticated = store.user.loadStatus === 'success'
+export default state => {
+  const loading = state.user.loadStatus === 'loading'
+  const authenticated = state.user.loadStatus === 'success'
   return (<Container
     style={{ marginTop: '3em' }}
     textAlign={authenticated ? 'left' : 'center'}>
@@ -37,10 +38,13 @@ export default store => {
         </Header.Subheader>
       </Header.Content>
     </Header>
-    <Dimmer active={loading || store.error}>
-      {String(store.error || '')}
+    {state.error && <Message negative onDismiss={store.dispatch.DISMISS_ERROR}>
+      <Message.Header>{state.error.message}</Message.Header>
+      <pre>{state.error.stack}</pre>
+    </Message>}
+    <Dimmer active={loading}>
       <Loader content='Loading' />
     </Dimmer>
-    { store.user.loadStatus === 'unauthorized' ? signIn : servicesList(store) }
+    { state.user.loadStatus === 'unauthorized' ? signIn : servicesList(state) }
   </Container>)
 }

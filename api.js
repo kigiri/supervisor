@@ -1,7 +1,13 @@
 const apiBaseUrl = 'https://supervisor.oct.ovh/'
-const toJSON = r => {
-  if (r.ok) return r.json()
-  const error = Error(r.status)
+const toJSON = async r => {
+  let result = await r.text()
+  try {
+    result = JSON.parse(result)
+    if (r.ok) return result
+  } catch (err) {
+  }
+  const error = Error(result.message || r.status)
+  error.srcStack = result.stack || result
   error.status = r.status
   error.response = r
   throw error
@@ -13,15 +19,13 @@ const api = (path, params = {}) => fetch(`${apiBaseUrl}${path}`, {
   ...params,
 }).then(toJSON)
 
-const headers = {
-  'Accept': 'application/json, text/plain, */*',
-  'Content-Type': 'application/json',
-}
-
 api.post = (path, body) => api(path, {
   method: 'POST',
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  },
   body: JSON.stringify(body),
-  headers,
 })
 
 export default api
