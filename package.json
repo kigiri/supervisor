@@ -30,6 +30,7 @@
   },
   "homepage": "https://nan.ci/user",
   "dependencies": {
+    "date-fns": "^1.29.0",
     "parcel-bundler": "^1.2.0",
     "redux": "^3.7.2",
     "semantic-ui-css": "^2.2.12",

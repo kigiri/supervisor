@@ -31,23 +31,31 @@ const parseLog = l => {
     const date = new Date(Number(id.slice(0, -3)))
     return { index: _index++, id, source, message, date }
   } catch (err) {
-    console.log('unable to parse', l)
+    console.log('unable to parse log', l)
   }
 }
+
+const dispatchStatus = rawData => {
+  try { store.dispatch.UPDATE_STATUS(JSON.parse(rawData)) }
+  catch (err) { console.log('unable to parse status', rawData) }
+}
+
 const dispatchLogs = () => {
   const logs = _logsCache
   _logsCache = []
-  console.log('dispatching', logs.length, 'logs')
   store.dispatch.ADD_LOGS(logs)
 }
 
 const onmessage = ({ data }) => {
+  if (typeof data === 'string') return dispatchStatus(data)
+
   const logs = String.fromCharCode.apply(null, new Uint8Array(data))
     .split('\n')
     .filter(Boolean)
+
   _logsCache = _logsCache.concat(logs.map(parseLog))
   clearTimeout(_debounce)
-  _debounce = setTimeout(dispatchLogs, 150)
+  _debounce = setTimeout(dispatchLogs, 250)
 }
 
 const connectWs = (tries = 1) => {

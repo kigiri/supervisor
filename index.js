@@ -7,8 +7,13 @@ import './user-data'
 import app from './app'
 import store from './store'
 
-const render = () =>
+
+let timeout
+const render = () => {
+  clearTimeout(timeout)
   ReactDOM.render(app(store.getState()), document.getElementById('app'))
+  timeout = setTimeout(render, 5000)
+}
 
 store.subscribe(render)
 

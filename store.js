@@ -7,6 +7,10 @@ const del = (key, obj) => {
   return r
 }
 
+const send = ({ ws }, route, message) => (ws && ws.readyState === 1)
+  ? ws.send(`${route}:${message}`)
+  : console.error('unable to send message ', `${route}:${message}`)
+
 const reducers = Object.create(null)
 reducers.SET_USER_DATA = (state, { data: user }) =>
   ({ ...state, user })
@@ -41,25 +45,36 @@ const updateService = (state, serviceName, action, ...args) => ({
   [serviceName]: action(state.services[serviceName], ...[ ...args, state ]),
 })
 
+const setServiceProperty = (service, key, value) =>
+  ({ ...service, [key]: value })
+
 const envChange = (service, key, value) =>
   ({ ...service, env: { ...service.env, [key]: value } })
-reducers.ENV_CHANGE = (state, { data: { serviceName, value, key } }) => ({
-  ...state,
-  services: updateService(state, serviceName, envChange, key, value),
-})
+
+const delEnv = (service, key) =>
+  ({ ...service, env: del(key, service.env) })
 
 const addEnv = (service, state) => ({
   ...service,
   env: { ...service.env, [state.inputsValues.addEnv.toUpperCase()]: '' },
 })
+
+reducers.UPDATE_STATUS = (state, { data: { name, key, time } }) => ({
+  ...state,
+  services: updateService(state, name, setServiceProperty, key, time),
+})
+
+reducers.ENV_CHANGE = (state, { data: { serviceName, value, key } }) => ({
+  ...state,
+  services: updateService(state, serviceName, envChange, key, value),
+})
+
 reducers.ADD_ENV = (state, { data: serviceName }) => ({
   ...state,
   inputsValues: { ...state.inputsValues, addEnv: '' },
   services: updateService(state, serviceName, addEnv),
 })
 
-const delEnv = (service, key) =>
-  ({ ...service, env: del(key, service.env) })
 reducers.DEL_ENV = (state, { data: { serviceName, key } }) => ({
   ...state,
   inputsValues: { ...state.inputsValues, addEnv: '' },
@@ -75,15 +90,13 @@ reducers.SERVICE_SELECT = (state, { data: { serviceName, selected } }) => {
   const prev = state.selectedService !== serviceName
     && state.services[state.selectedService]
 
-  state.ws.send && state.ws.send(`${selected === 'log'
-    ? 'sub'
-    : 'unsub'}:${serviceName}`)
+  const service = { ...state.services[serviceName], selected }
   const newState = {
     ...state,
     selectedService: serviceName,
     services: {
       ...state.services,
-      [serviceName]: { ...state.services[serviceName], selected },
+      [serviceName]: service,
     },
   }
   if (prev) {
@@ -92,7 +105,11 @@ reducers.SERVICE_SELECT = (state, { data: { serviceName, selected } }) => {
     newPrev.logs = []
   }
   if (selected === 'log') {
+    send(state, 'sub', serviceName)
     setTimeout(autoScroll, 100)
+  } else {
+    send(state, 'unsub', serviceName)
+    service.logs = []
   }
   return newState
 }

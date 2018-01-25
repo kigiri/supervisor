@@ -1,4 +1,5 @@
 import React from 'react'
+import { distanceInWordsToNow } from 'date-fns'
 import store from '../store'
 import {
   Button,
@@ -8,6 +9,7 @@ import {
   Form,
   Input,
   Label,
+  Statistic,
 } from 'semantic-ui-react'
 
 const colors = {
@@ -45,6 +47,9 @@ const preStyle = {
   overflowX: 'hidden',
   fontFamily: 'monospace',
 }
+
+const dist = ts =>
+  distanceInWordsToNow(new Date(Number(ts.slice(0, -3))))
 
 const select = (service, selected) => service.selected === selected
   ? undefined
@@ -96,8 +101,41 @@ const selectEventHandler = ev => selectEventKeys.includes(ev.key)
   : undefined
 
 const toggleHide = () => store.dispatch.HIDE_ENV()
+const valueStyle = {
+  width: '33.3333%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+const uptimeStatusEl = (time, color, icon) => (
+  <Statistic style={valueStyle} color={color}>
+    <Statistic.Value>
+      <Icon name={icon} />
+    </Statistic.Value>
+    <Statistic.Label>
+    {dist(time)}
+    </Statistic.Label>
+  </Statistic>
+)
+const uptimeStatus = service =>
+  (!service.started || service.stopped > service.started)
+    ? uptimeStatusEl(service.stopped, 'red', 'ban')
+    : uptimeStatusEl(service.started, 'green', 'wait')
+
 const contentSwitch = {
-  undefined: service => service.description,
+  undefined: service => (<Statistic.Group widths='3'>
+    <Statistic style={valueStyle}>
+      <Statistic.Value>
+        <Icon name={service.icon || 'cube'} />
+         -{service.version}
+      </Statistic.Value>
+      <Statistic.Label>{service.description}</Statistic.Label>
+    </Statistic>
+    {uptimeStatus(service)}
+    <Statistic style={valueStyle}>
+      <Statistic.Value>{service.port}</Statistic.Value>
+      <Statistic.Label>port</Statistic.Label>
+    </Statistic>
+  </Statistic.Group>),
   log: (service, state) => {
     service.sub || store.dispatch.SUB()
     return (<table><tbody>{(service.logs || []).map(log => (
@@ -149,12 +187,7 @@ module.exports = (service, state) => (<div key={service.name} style={{ paddingBo
       header
       active={!service.selected}
       onClick={select(service, undefined)}>
-      {service.name[0].toUpperCase()+service.name.slice(1)}
-      <span style={{
-        fontWeight: 'normal',
-        color: '#767676',
-        marginLeft: '0.5em',
-      }} >v{service.version}</span>
+      {service.name.toUpperCase()}
     </Menu.Item>
     <Menu.Item
       icon='terminal'

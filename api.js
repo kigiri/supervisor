@@ -5,7 +5,9 @@ const toJSON = async r => {
     result = JSON.parse(result)
     if (r.ok) return result
   } catch (err) {
+    console.log('error parsing', err)
   }
+  console.log(result)
   const error = Error(result.message || r.status)
   error.srcStack = result.stack || result
   error.status = r.status
